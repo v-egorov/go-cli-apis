@@ -7,6 +7,6 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	content := "There's an API here"
+	content := "There's an API here\n"
 	replyTextContent(w, r, http.StatusOK, content)
 }
