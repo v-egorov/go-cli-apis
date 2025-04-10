@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -43,17 +44,21 @@ func todoRouter(todoFile string, l sync.Locker) http.HandlerFunc {
 		}
 
 		if r.URL.Path == "" {
+			// это /todo/ без параметров
 			switch r.Method {
 			case http.MethodGet:
 				getAllHandler(w, r, list)
 			case http.MethodPost:
+				addHandler(w, r, list, todoFile)
 			default:
 				message := "HTTP метод не поддерживается"
 				replyError(w, r, http.StatusMethodNotAllowed, message)
 			}
+			// Завершили обработку без запроса по путти /todo/ без параметров
 			return
 		}
 
+		// Сюда попадаем только в том случае, если URL запроса содержит параметры
 		id, err := validateID(r.URL.Path, list)
 		if err != nil {
 			if errors.Is(err, ErrNotFound) {
@@ -69,6 +74,8 @@ func todoRouter(todoFile string, l sync.Locker) http.HandlerFunc {
 			getOneHandler(w, r, list, id)
 		case http.MethodDelete:
 			deleteHandler(w, r, list, id, todoFile)
+		case http.MethodPatch:
+			patchHandler(w, r, list, id, todoFile)
 		default:
 			message := "Метод не поддерживается"
 			replyError(w, r, http.StatusMethodNotAllowed, message)
@@ -107,6 +114,28 @@ func getOneHandler(w http.ResponseWriter, r *http.Request, list *todo.List, id i
 	replyJSONContent(w, r, http.StatusOK, resp)
 }
 
+func addHandler(w http.ResponseWriter, r *http.Request, list *todo.List, todoFile string) {
+	log.Printf("addHandler: todoFile: %s\n", todoFile)
+	item := struct {
+		Task string `json:"task"`
+	}{}
+
+	log.Println("Decode JSON from request")
+	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
+		message := fmt.Sprintf("Невалидный JSON: %s", err)
+		replyError(w, r, http.StatusBadRequest, message)
+		return
+	}
+
+	list.Add(item.Task)
+	if err := list.Save(todoFile); err != nil {
+		replyError(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	replyTextContent(w, r, http.StatusCreated, "")
+}
+
 func deleteHandler(w http.ResponseWriter, r *http.Request, list *todo.List, id int, todoFile string) {
 	log.Printf("deleteHandler: id: %d, todoFile: %s\n", id, todoFile)
 	list.Delete(id)
@@ -115,5 +144,28 @@ func deleteHandler(w http.ResponseWriter, r *http.Request, list *todo.List, id i
 		replyError(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
+	replyTextContent(w, r, http.StatusNoContent, "")
+}
+
+func patchHandler(w http.ResponseWriter, r *http.Request, list *todo.List, id int, todoFile string) {
+	log.Printf("patchHandler: id %d, todoFile: %s\n", id, todoFile)
+
+	q := r.URL.Query()
+	if _, ok := q["complete"]; !ok {
+		message := "Отсутствует параметр запроса 'complete'"
+		replyError(w, r, http.StatusBadRequest, message)
+		return
+	}
+
+	if err := list.Complete(id); err != nil {
+		replyError(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if err := list.Save(todoFile); err != nil {
+		replyError(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	replyTextContent(w, r, http.StatusNoContent, "")
 }
