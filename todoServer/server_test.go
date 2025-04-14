@@ -61,6 +61,11 @@ func setupAPI(t *testing.T) (string, func()) {
 	}
 }
 
+func TestMain(m *testing.M) {
+	log.SetOutput(io.Discard)
+	os.Exit(m.Run())
+}
+
 func TestGet(t *testing.T) {
 	testCases := []struct {
 		name       string
@@ -95,8 +100,6 @@ func TestGet(t *testing.T) {
 			expCode: http.StatusNotFound,
 		},
 	}
-
-	// log.SetOutput(io.Discard)
 
 	url, cleanup := setupAPI(t)
 	defer cleanup()
@@ -195,6 +198,93 @@ func TestAdd(t *testing.T) {
 
 		if resp.Results[0].Task != taskName {
 			t.Errorf("Ожидали Task %q, а получили %q", taskName, resp.Results[0].Task)
+		}
+	})
+}
+
+func checkExpectedHttpCode(t *testing.T, expected, actual int) {
+	if expected != actual {
+		t.Fatalf("Ожидали httpStatus %q, получили %q",
+			http.StatusText(expected),
+			http.StatusText(actual))
+	}
+}
+
+func checkErr(t *testing.T, err error) {
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDelete(t *testing.T) {
+	url, cleanup := setupAPI(t)
+	defer cleanup()
+
+	t.Run("Delete", func(t *testing.T) {
+		u := fmt.Sprintf("%s/todo/1", url)
+		req, err := http.NewRequest(http.MethodDelete, u, nil)
+		checkErr(t, err)
+
+		r, err := http.DefaultClient.Do(req)
+		checkErr(t, err)
+		checkExpectedHttpCode(t, http.StatusNoContent, r.StatusCode)
+	})
+
+	t.Run("CheckDelete", func(t *testing.T) {
+		r, err := http.Get(url + "/todo/")
+		checkErr(t, err)
+		checkExpectedHttpCode(t, http.StatusOK, r.StatusCode)
+
+		var resp todoResponse
+		if err := json.NewDecoder(r.Body).Decode(&resp); err != nil {
+			t.Fatal(err)
+		}
+		r.Body.Close()
+
+		if len(resp.Results) != 1 {
+			t.Errorf("Ожидали 1 элемент, получили %d", len(resp.Results))
+		}
+
+		expTask := "Дело № 2."
+		if resp.Results[0].Task != expTask {
+			t.Errorf("Ожидали %q, а получили %q", expTask, resp.Results[0].Task)
+		}
+	})
+}
+
+func TestComplete(t *testing.T) {
+	url, cleanup := setupAPI(t)
+	defer cleanup()
+
+	t.Run("Complete", func(t *testing.T) {
+		u := fmt.Sprintf("%s/todo/1?complete", url)
+		req, err := http.NewRequest(http.MethodPatch, u, nil)
+		checkErr(t, err)
+
+		r, err := http.DefaultClient.Do(req)
+		checkErr(t, err)
+		checkExpectedHttpCode(t, http.StatusNoContent, r.StatusCode)
+	})
+
+	t.Run("CheckComplete", func(t *testing.T) {
+		r, err := http.Get(url + "/todo/")
+		checkErr(t, err)
+		checkExpectedHttpCode(t, http.StatusOK, r.StatusCode)
+
+		var resp todoResponse
+		checkErr(t, json.NewDecoder(r.Body).Decode(&resp))
+		r.Body.Close()
+
+		if len(resp.Results) != 2 {
+			t.Errorf("Ожидали 2 элемента, получили %d", len(resp.Results))
+		}
+
+		if !resp.Results[0].Done {
+			t.Error("Ожидали элемент 1 не выполненным")
+		}
+
+		if resp.Results[1].Done {
+			t.Errorf("Ожидали элемент 1 выполненным")
 		}
 	})
 }
