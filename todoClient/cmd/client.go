@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
 
 var (
 	ErrConnection      = errors.New("ошибка соединения")
-	ErrNotFound        = errors.New("не неайдено")
+	ErrNotFound        = errors.New("не найдено")
 	ErrInvalidResponse = errors.New("невалидный ответ сервера")
 	ErrInvalid         = errors.New("невалидные данные")
 	ErrNotNumber       = errors.New("неверное число")
@@ -63,6 +64,7 @@ func getItems(url string) ([]item, error) {
 	}
 
 	if resp.TotalResults == 0 {
+		log.Println("Zero records in response")
 		return nil, fmt.Errorf("%w: запрос вернул 0 записей", ErrNotFound)
 	}
 
@@ -70,6 +72,7 @@ func getItems(url string) ([]item, error) {
 }
 
 func getAll(apiRoot string) ([]item, error) {
+	log.Println("getAll")
 	u := fmt.Sprintf("%s/todo", apiRoot)
 	return getItems(u)
 }

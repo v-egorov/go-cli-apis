@@ -24,6 +24,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"text/tabwriter"
 
@@ -37,6 +38,7 @@ var listCmd = &cobra.Command{
 	Short:        "Вывести список дел",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		log.Println("listCmd RunE")
 		apiRoot := viper.GetString("api-root")
 		return listAction(os.Stdout, apiRoot)
 	},
@@ -47,8 +49,10 @@ func init() {
 }
 
 func listAction(out io.Writer, apiRoot string) error {
+	log.Println("listAction")
 	items, err := getAll(apiRoot)
 	if err != nil {
+		log.Printf("Error: %s", err)
 		return err
 	}
 
@@ -56,13 +60,14 @@ func listAction(out io.Writer, apiRoot string) error {
 }
 
 func printAll(out io.Writer, items []item) error {
+	log.Println("printAll")
 	w := tabwriter.NewWriter(out, 3, 2, 0, ' ', 0)
 	for k, v := range items {
-		done := '-'
+		done := "-"
 		if v.Done {
-			done = 'X'
+			done = "X"
 		}
-		fmt.Fprintf(w, "%s\t%d\t%s\t\n", done, k+1, v.Task)
+		fmt.Fprintf(w, "%s %d %s\n", done, k+1, v.Task)
 	}
 	return w.Flush()
 }
