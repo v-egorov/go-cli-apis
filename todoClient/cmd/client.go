@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -72,7 +73,78 @@ func getItems(url string) ([]item, error) {
 }
 
 func getAll(apiRoot string) ([]item, error) {
-	log.Println("getAll")
+	log.Println("Client: getAll")
 	u := fmt.Sprintf("%s/todo", apiRoot)
 	return getItems(u)
+}
+
+func getOne(apiRoot string, id int) (item, error) {
+	log.Println("Client: getOne")
+	u := fmt.Sprintf("%s/todo/%d", apiRoot, id)
+
+	items, err := getItems(u)
+	if err != nil {
+		log.Printf("Error: %s", err)
+		return item{}, err
+	}
+
+	if len(items) != 1 {
+		log.Println("Error: getItems returned more then one record")
+		return item{}, fmt.Errorf("%w: Невалидный результат - получили более 1 записи", ErrInvalid)
+	}
+
+	log.Println("Clent: getOne ok")
+	return items[0], nil
+}
+
+func sendRequest(url, method, contentType string, expStatus int, body io.Reader) error {
+	log.Println("Client: sendRequest")
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return err
+	}
+	if contentType != "" {
+		req.Header.Set("content-type", contentType)
+	}
+
+	log.Println("Client: Do")
+	r, err := newClient().Do(req)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+
+	if r.StatusCode != expStatus {
+		msg, err := io.ReadAll(r.Body)
+		if err != nil {
+			return fmt.Errorf("невозможно прочитать body ответа: %w", err)
+		}
+		err = ErrInvalidResponse
+		if r.StatusCode == http.StatusNotFound {
+			err = ErrNotFound
+		}
+		return fmt.Errorf("%w: %s", err, msg)
+	}
+	return nil
+}
+
+func addItem(apiRot, task string) error {
+	log.Println("Client: addItem")
+	u := fmt.Sprintf("%s/todo", apiRot)
+
+	item := struct {
+		Task string `json:"task"`
+	}{
+		Task: task,
+	}
+
+	var body bytes.Buffer
+
+	log.Println("addItem: encode request body")
+	if err := json.NewEncoder(&body).Encode(item); err != nil {
+		return err
+	}
+
+	log.Println("addItem: sendRequest")
+	return sendRequest(u, http.MethodPost, "application/json", http.StatusCreated, &body)
 }
