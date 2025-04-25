@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"testing"
 )
@@ -88,9 +90,10 @@ func TestViewAction(t *testing.T) {
 		{
 			name:     "ResultsOne",
 			expError: nil,
-			expOut: `Дело: Дело №1
-			Создано: 
-			`,
+			expOut: `Дело:		Task 1
+Создано:	Oct/28 @08:23
+Завершено:	Нет
+`,
 			resp: testResp["resultsOne"],
 			id:   "1",
 		},
@@ -123,8 +126,56 @@ func TestViewAction(t *testing.T) {
 			}
 
 			if out.String() != tc.expOut {
-				t.Errorf("Ожидали результат: %q, а получили: %q", tc.expOut, out.String())
+				t.Errorf("Ожидали результат:\n%q, а получили:\n%q", tc.expOut, out.String())
 			}
 		})
+	}
+}
+
+func TestAddAction(t *testing.T) {
+	expURLPath := "/todo"
+	expMethod := http.MethodPost
+	expBody := "{\"task\":\"Task 1\"}\n"
+	expContentType := "application/json"
+	expOut := "Добавляем дело \"Task 1\" в список\n"
+	args := []string{"Task", "1"}
+
+	log.Println("TestAddAction: create mock server")
+	url, cleanup := mockServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != expURLPath {
+			t.Errorf("Ожидали URLPath: %q, получили: %q", expURLPath, r.URL.Path)
+		}
+		if r.Method != expMethod {
+			t.Errorf("Ожидали http method: %q, получили: %q", expMethod, r.Method)
+		}
+
+		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(body) != expBody {
+			t.Errorf("Ожидали body: %q, а получили: %q", expBody, string(body))
+		}
+
+		contentType := r.Header.Get("Content-Type")
+		if contentType != expContentType {
+			t.Errorf("Ожидали Content-Type: %q, а получили: %q", expContentType, contentType)
+		}
+
+		w.WriteHeader(testResp["created"].Status)
+		fmt.Fprintln(w, testResp["created"].Body)
+	})
+	defer cleanup()
+	log.Printf("TestAddAction: created, apiRoot: %s", url)
+
+	var out bytes.Buffer
+
+	if err := addAction(&out, url, args); err != nil {
+		t.Fatalf("Не ожидали ошибку, а получили: %q", err)
+	}
+
+	if out.String() != expOut {
+		t.Errorf("Ожидали: %q, получили: %q", expOut, out.String())
 	}
 }

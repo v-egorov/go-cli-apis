@@ -64,6 +64,10 @@ var testResp = map[string]struct {
 		Status: http.StatusOK,
 		Body:   "404 - not found",
 	},
+	"created": {
+		Status: http.StatusCreated,
+		Body:   "",
+	},
 }
 
 func mockServer(h http.HandlerFunc) (string, func()) {
