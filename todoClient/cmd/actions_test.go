@@ -179,3 +179,68 @@ func TestAddAction(t *testing.T) {
 		t.Errorf("Ожидали: %q, получили: %q", expOut, out.String())
 	}
 }
+
+func TestComplteAction(t *testing.T) {
+	expURLPath := "/todo/1"
+	expMethod := http.MethodPatch
+	expQuery := "complete"
+	expOut := "Дело 1 отмечено как выполненное\n"
+	arg := "1"
+
+	url, cleanup := mockServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != expURLPath {
+			t.Errorf("Ожидали путь %q, а получили %q", expURLPath, r.URL.Path)
+		}
+		if r.Method != expMethod {
+			t.Errorf("Ожидали метод %q, а получили %q", expMethod, r.Method)
+		}
+		if _, ok := r.URL.Query()[expQuery]; !ok {
+			t.Errorf("Ожидаемый запрос %q не найден в URL", expQuery)
+		}
+
+		w.WriteHeader(testResp["noContent"].Status)
+		fmt.Fprintln(w, testResp["noContent"].Body)
+	})
+	defer cleanup()
+
+	var out bytes.Buffer
+
+	if err := completeAction(&out, url, arg); err != nil {
+		t.Fatalf("Не ожидали ошибку, а получили: %q", err)
+	}
+	if out.String() != expOut {
+		t.Errorf("Ожидали вывод:\n%q\nа получили:\n%q", expOut, out.String())
+	}
+}
+
+func TestDelAction(t *testing.T) {
+	expURLPath := "/todo/1"
+	expMethod := http.MethodDelete
+	expOut := "Дело 1 удалено\n"
+	arg := "1"
+
+	log.Println("Creating mockServer")
+	url, cleanup := mockServer(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Inside mockServer func: %s, %s\n", r.URL.Path, r.Method)
+		if r.URL.Path != expURLPath {
+			t.Errorf("Ожидали путь %q, а получили %q", expURLPath, r.URL.Path)
+		}
+		if r.Method != expMethod {
+			t.Errorf("Ожидали метод %q, а получили %q", expMethod, r.Method)
+		}
+
+		w.WriteHeader(testResp["noContent"].Status)
+		fmt.Fprintln(w, testResp["noContent"].Body)
+	})
+	defer cleanup()
+	log.Printf("mockServer: %s\n", url)
+
+	var out bytes.Buffer
+
+	if err := deleteAction(&out, url, arg); err != nil {
+		t.Fatalf("Не ожидали получить ошибку, а получили: %q", err)
+	}
+	if out.String() != expOut {
+		t.Errorf("Ожидали вывод:\n%q\nа получили:\n%q", expOut, out.String())
+	}
+}

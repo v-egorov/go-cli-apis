@@ -148,3 +148,18 @@ func addItem(apiRot, task string) error {
 	log.Println("addItem: sendRequest")
 	return sendRequest(u, http.MethodPost, "application/json", http.StatusCreated, &body)
 }
+
+func completeItem(apiRoot string, id int) error {
+	log.Println("Client: completeItem")
+	u := fmt.Sprintf("%s/todo/%d?complete", apiRoot, id)
+
+	log.Printf("PATCH: %s\n", u)
+	return sendRequest(u, http.MethodPatch, "", http.StatusNoContent, nil)
+}
+
+func deteleItem(apiRoot string, id int) error {
+	log.Println("Client: deleteItem")
+	u := fmt.Sprintf("%s/todo/%d", apiRoot, id)
+	log.Printf("DELETE: %s\n", u)
+	return sendRequest(u, http.MethodDelete, "", http.StatusNoContent, nil)
+}

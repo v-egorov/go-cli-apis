@@ -27,58 +27,43 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-// viewCmd represents the view command
-var viewCmd = &cobra.Command{
-	Use:          "view",
-	Short:        "Показать детали одной записи",
-	SilenceUsage: true,
-	Args:         cobra.ExactArgs(1),
+// delCmd represents the del command
+var delCmd = &cobra.Command{
+	Use:           "del",
+	Short:         "Удаляет дело <n>",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	Args:          cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		log.Println("viewCmd RunE")
 		apiRoot := viper.GetString("api-root")
-		return viewAction(os.Stdout, apiRoot, args[0])
+		return deleteAction(os.Stdout, apiRoot, args[0])
 	},
 }
 
 func init() {
-	log.Println("viewCmd: init - AddCommand")
-	rootCmd.AddCommand(viewCmd)
+	log.Println("delCmd: init - AddCommand")
+	rootCmd.AddCommand(delCmd)
 }
 
-func viewAction(out io.Writer, apiRoot, arg string) error {
-	log.Printf("vewAction: apiRoot: %s, arg: %s", apiRoot, arg)
+func deleteAction(out io.Writer, apiRoot, arg string) error {
+	log.Printf("deleteAction: apiRoot: %s, arg: %s\n", apiRoot, arg)
 	id, err := strconv.Atoi(arg)
 	if err != nil {
-		log.Printf("Invalid arg, must be int: %s", arg)
-		return fmt.Errorf("%w: неверный номер дела: %s", ErrNotNumber, arg)
+		return fmt.Errorf("%w: не является целым числом", ErrNotNumber)
 	}
 
-	i, err := getOne(apiRoot, id)
-	if err != nil {
-		log.Printf("Error from apiRoot: %s", err)
+	if err := deteleItem(apiRoot, id); err != nil {
 		return err
 	}
-	return printOne(out, i)
+	return printDel(out, id)
 }
 
-const timeFormat = "Jan/02 @15:04"
-
-func printOne(out io.Writer, i item) error {
-	w := tabwriter.NewWriter(out, 14, 2, 0, ' ', 0)
-	fmt.Fprintf(out, "Дело:\t\t%s\n", i.Task)
-	fmt.Fprintf(out, "Создано:\t%s\n", i.CreatedAt.Format(timeFormat))
-	if i.Done {
-		fmt.Fprintf(out, "Завершено:\t%s\n", "Да")
-		fmt.Fprintf(out, "\t\t%s\n", i.CompletedAt.Format(timeFormat))
-		return w.Flush()
-	}
-
-	fmt.Fprintf(out, "Завершено:\t%s\n", "Нет")
-	return w.Flush()
+func printDel(out io.Writer, id int) error {
+	_, err := fmt.Fprintf(out, "Дело %d удалено\n", id)
+	return err
 }

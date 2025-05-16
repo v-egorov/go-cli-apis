@@ -45,6 +45,7 @@ var addCmd = &cobra.Command{
 }
 
 func init() {
+	log.Println("addCmd: init - AddCommand")
 	rootCmd.AddCommand(addCmd)
 }
 
