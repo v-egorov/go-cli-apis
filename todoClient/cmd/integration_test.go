@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"strings"
@@ -47,5 +49,34 @@ func TestIntegration(t *testing.T) {
 		if expOut != out.String() {
 			t.Errorf("Ожидали получить:\n%q\nа получили:\n%q\n", expOut, out.String())
 		}
+	})
+
+	t.Run("ListTasks", func(t *testing.T) {
+		var out bytes.Buffer
+		if err := listAction(&out, apiRoot); err != nil {
+			t.Fatalf("Не ожидали ошибку, а получили: %q", err)
+		}
+
+		outList := ""
+		scanner := bufio.NewScanner(&out)
+		for scanner.Scan() {
+			if strings.Contains(scanner.Text(), task) {
+				outList = scanner.Text()
+				break
+			}
+		}
+		if outList == "" {
+			t.Errorf("Дело %q не в списке", task)
+		}
+		log.Printf("Дело: %s\n", outList)
+
+		taskCompleteStatus := strings.Fields(outList)[0]
+		log.Printf("taskCompleteStatus: %s\n", taskCompleteStatus)
+		if taskCompleteStatus != "-" {
+			t.Errorf("Ожидали статус дела: %q, а получили: %q", "-", taskCompleteStatus)
+		}
+
+		taskId := strings.Fields(outList)[1]
+		log.Printf("taskId: %s", taskId)
 	})
 }
